@@ -1,4 +1,9 @@
 {
+  "build": {
+    "env": {
+      "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1"
+    }
+  },
   "functions": {
     "src/api/chat.ts": {
       "maxDuration": 60
