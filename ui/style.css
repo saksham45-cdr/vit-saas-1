@@ -1,0 +1,201 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #e8f4fd;
+  color: #0d47a1;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+.header h1 {
+  margin: 0 0 0.25rem;
+}
+
+.chat-container {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+}
+
+.message {
+  max-width: 80%;
+  padding: 0.75rem 1rem;
+  border-radius: 16px;
+  display: inline-block;
+  position: relative;
+}
+
+.message.user {
+  align-self: flex-end;
+  background: #2196f3;
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.message.bot {
+  align-self: flex-start;
+  background: #ffffff;
+  color: #0d47a1;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 6px rgba(13, 71, 161, 0.08);
+}
+
+.source-indicator {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.input-bar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1.25rem;
+  background: linear-gradient(to top, rgba(232, 244, 253, 0.95), rgba(232, 244, 253, 0));
+  backdrop-filter: blur(8px);
+}
+
+.input-bar textarea {
+  flex: 1;
+  resize: none;
+  border-radius: 12px;
+  border: 1px solid #bbdefb;
+  padding: 0.5rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.input-bar textarea:focus {
+  border-color: #2196f3;
+  box-shadow: 0 0 0 1px rgba(33, 150, 243, 0.15);
+}
+
+.input-bar button {
+  padding: 0 1.25rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: #2196f3;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 3px 8px rgba(33, 150, 243, 0.35);
+  transition: transform 0.05s ease, box-shadow 0.1s ease, background 0.1s ease;
+}
+
+.input-bar button:hover {
+  background: #1e88e5;
+  box-shadow: 0 4px 10px rgba(33, 150, 243, 0.4);
+  transform: translateY(-1px);
+}
+
+.input-bar button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(33, 150, 243, 0.2);
+}
+
+.input-bar button:disabled {
+  background: #90caf9;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* "Searching..." animated message */
+.message.searching {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.message.searching::after {
+  content: "";
+  display: inline-block;
+  width: 0.4em;
+  animation: blink 1s step-start infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Hotel list results */
+.reply-summary {
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.hotel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hotel-card {
+  background: #f0f8ff;
+  border: 1px solid #bbdefb;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+}
+
+.hotel-name {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.1rem;
+}
+
+.hotel-location {
+  font-size: 0.8rem;
+  opacity: 0.65;
+  margin-bottom: 0.4rem;
+}
+
+.hotel-rating {
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+  color: #1565c0;
+}
+
+.hotel-rooms {
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+
+.hotel-tags {
+  font-size: 0.8rem;
+  color: #1976d2;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+}
+
+.hotel-summary {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 0.4rem;
+  border-top: 1px solid #bbdefb;
+  padding-top: 0.4rem;
+}
+
+.hotel-card .source-indicator {
+  margin-top: 0.35rem;
+}
