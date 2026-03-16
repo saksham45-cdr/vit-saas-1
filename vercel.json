@@ -5,7 +5,7 @@
     }
   },
   "functions": {
-    "src/api/chat.ts": {
+    "api/chat.ts": {
       "maxDuration": 60
     }
   }
