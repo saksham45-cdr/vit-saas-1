@@ -15,6 +15,10 @@ export async function recordSerpCall(query: string): Promise<void> {
 }
 
 export async function getSerpUsageThisMonth(): Promise<number> {
+  // Offset accounts for calls made before serp_usage tracking was active.
+  // Set SERP_USAGE_OFFSET=N in .env to seed the baseline.
+  const offset = parseInt(process.env.SERP_USAGE_OFFSET ?? "0", 10);
+
   try {
     const supabase = getSupabaseClient();
     const startOfMonth = new Date();
@@ -27,10 +31,10 @@ export async function getSerpUsageThisMonth(): Promise<number> {
       .gte("called_at", startOfMonth.toISOString());
 
     if (error) throw error;
-    return count ?? 0;
+    return (count ?? 0) + offset;
   } catch (err) {
     logError("serpQuota.usage", "supabase:serp_usage", 0, err);
-    return 0;
+    return offset;
   }
 }
 

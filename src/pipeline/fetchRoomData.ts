@@ -1,7 +1,8 @@
 import axios from "axios";
-import { secureGet, ALLOWED_ENDPOINTS } from "../services/apiService";
+import { secureGet, securePost, ALLOWED_ENDPOINTS } from "../services/apiService";
 import { getGroqClient, GROQ_MODEL } from "../lib/groq";
 import { logAudit, logError } from "../lib/logger";
+import { checkAndRecordSerperCall } from "../lib/serperQuota";
 import { checkAndRecordSerpCall } from "../lib/serpQuota";
 import type { ConnectingRoomsStatus } from "../types/hotel";
 
@@ -32,6 +33,45 @@ interface SerpResult {
 
 interface SerpApiResponse {
   organic_results?: SerpResult[];
+}
+
+interface SerperResponse {
+  organic?: SerpResult[];
+}
+
+// Runs a single search query — Serper primary, SerpAPI fallback.
+// Returns organic results in a unified format.
+async function searchQuery(query: string): Promise<SerpResult[]> {
+  const serperKey = process.env.SERPER_API_KEY;
+  if (serperKey) {
+    const allowed = await checkAndRecordSerperCall(query);
+    if (allowed) {
+      try {
+        const data = await securePost<SerperResponse>(
+          ALLOWED_ENDPOINTS.SERPER_DEV,
+          { q: query, num: 5 },
+          serperKey
+        );
+        if (data.organic?.length) return data.organic;
+      } catch {
+        // Fall through to SerpAPI
+      }
+    }
+  }
+
+  // Fallback: SerpAPI
+  const serpKey = process.env.SERP_API_KEY;
+  if (!serpKey) return [];
+
+  const allowed = await checkAndRecordSerpCall(query);
+  if (!allowed) return [];
+
+  const data = await secureGet<SerpApiResponse>(ALLOWED_ENDPOINTS.SERP_API, {
+    q: query,
+    api_key: serpKey,
+    num: 5,
+  });
+  return data.organic_results ?? [];
 }
 
 function getDomain(url: string): string {
@@ -164,7 +204,6 @@ export async function fetchRoomData(
   location: string,
   country?: string
 ): Promise<RoomData> {
-  const apiKey = process.env.SERP_API_KEY;
   const fullLocation = [location, country].filter(Boolean).join(", ");
   const sources: string[] = [];
 
@@ -176,7 +215,8 @@ export async function fetchRoomData(
     sources: [],
   };
 
-  if (!apiKey) return defaultResult;
+  // Require at least one search provider to be configured
+  if (!process.env.SERPER_API_KEY && !process.env.SERP_API_KEY) return defaultResult;
 
   let roomCountText = "";
   let connectingText = "";
@@ -184,55 +224,35 @@ export async function fetchRoomData(
 
   // ── Query 1: Total room count ─────────────────────────────────────────────
   try {
-    const q1Query = `${hotelName} ${fullLocation} total number of rooms`;
-    const q1Allowed = await checkAndRecordSerpCall(q1Query);
-    if (!q1Allowed) return { ...defaultResult, sources };
-
-    const q1 = await secureGet<SerpApiResponse>(ALLOWED_ENDPOINTS.SERP_API, {
-      q: q1Query,
-      api_key: apiKey,
-      num: 5,
-    });
-
-    if (!q1.organic_results?.length) {
-      logError("fetchRoomData.q1", ALLOWED_ENDPOINTS.SERP_API, 0,
+    const q1Results = await searchQuery(`${hotelName} ${fullLocation} total number of rooms`);
+    if (!q1Results.length) {
+      logError("fetchRoomData.q1", "search", 0,
         new Error(`No results: ${hotelName} room count`));
     } else {
-      for (const r of q1.organic_results) {
+      for (const r of q1Results) {
         const domain = getDomain(r.link);
         if (!isOTA(domain) && !officialUrl) officialUrl = r.link;
         if (r.snippet) { roomCountText += ` ${r.snippet}`; sources.push(domain); }
       }
     }
   } catch (err) {
-    logError("fetchRoomData.q1", ALLOWED_ENDPOINTS.SERP_API, 0, err);
+    logError("fetchRoomData.q1", "search", 0, err);
     return { ...defaultResult, sources };
   }
 
   // ── Query 2: Family/connecting room availability ──────────────────────────
   try {
-    const q2Query = `${hotelName} ${fullLocation} connecting rooms family rooms availability`;
-    const q2Allowed = await checkAndRecordSerpCall(q2Query);
-    if (q2Allowed) {
-      const q2 = await secureGet<SerpApiResponse>(ALLOWED_ENDPOINTS.SERP_API, {
-        q: q2Query,
-        api_key: apiKey,
-        num: 5,
-      });
-
-      if (q2.organic_results?.length) {
-        for (const r of q2.organic_results) {
-          const domain = getDomain(r.link);
-          if (!isOTA(domain) && !officialUrl) officialUrl = r.link;
-          if (r.snippet) {
-            connectingText += ` ${r.snippet}`;
-            if (!sources.includes(domain)) sources.push(domain);
-          }
-        }
+    const q2Results = await searchQuery(`${hotelName} ${fullLocation} connecting rooms family rooms availability`);
+    for (const r of q2Results) {
+      const domain = getDomain(r.link);
+      if (!isOTA(domain) && !officialUrl) officialUrl = r.link;
+      if (r.snippet) {
+        connectingText += ` ${r.snippet}`;
+        if (!sources.includes(domain)) sources.push(domain);
       }
     }
   } catch (err) {
-    logError("fetchRoomData.q2", ALLOWED_ENDPOINTS.SERP_API, 0, err);
+    logError("fetchRoomData.q2", "search", 0, err);
   }
 
   // ── Fetch official hotel website (if found, non-OTA) ─────────────────────
