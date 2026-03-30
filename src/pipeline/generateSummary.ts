@@ -41,16 +41,16 @@ export async function generateSummary(enrichment: HotelEnrichment): Promise<stri
       enrichment.family_detail ?? "",
       enrichment.connecting_detail ?? "",
     ].filter(Boolean).join("; ");
-    const amenities = roomTypes; // best available amenity data we have
-    const uniqueFeatures = ""; // reserved for future enrichment
+    const facilities = enrichment.facilities?.join(", ") ?? "";
+    const transit = enrichment.nearby_transit ?? "";
 
     const userPrompt =
       `Write a 2-sentence hotel note for ${hotelName} in ${city}.\n\n` +
       `Use the following data points if available:\n` +
       `- Guest review score: ${reviewScore}\n` +
-      `- Notable amenities: ${amenities}\n` +
+      `- Facilities: ${facilities}\n` +
       `- Room types: ${roomTypes}\n` +
-      `- Any unique property features: ${uniqueFeatures}\n\n` +
+      `- Nearby transit: ${transit}\n\n` +
       `Rules:\n` +
       `- Sentence 1: Lead with the hotel's most distinctive physical feature, history, or atmosphere. Be specific.\n` +
       `- Sentence 2: Name 2-3 concrete amenities or experiences, then close with who this hotel is for.\n` +

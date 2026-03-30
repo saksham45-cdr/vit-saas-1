@@ -22,6 +22,8 @@ export interface RoomData {
   connecting_rooms: ConnectingRoomsStatus;
   connecting_detail: string;
   family_detail: string;
+  facilities: string[];
+  nearby_transit: string;
   sources: string[];
   confidence?: "low";
 }
@@ -136,14 +138,16 @@ async function extractWithGroq(
   const systemPrompt =
     "You are a data extractor. Return ONLY valid JSON — no explanation, no markdown, no text outside the JSON object.";
 
-  const userPrompt = `Extract room information for "${hotelName}" in "${city}" from the text below.
+  const userPrompt = `Extract hotel information for "${hotelName}" in "${city}" from the text below.
 
 Return this exact JSON structure:
 {
   "total_rooms": <integer or null>,
   "connecting_rooms": <"yes" | "on request" | "no" | "unknown">,
   "connecting_detail": "<brief 1-sentence detail, empty string if unknown>",
-  "family_detail": "<1 sentence about family rooms, empty string if unknown>"
+  "family_detail": "<1 sentence about family rooms, empty string if unknown>",
+  "facilities": ["<facility1>", "<facility2>"],
+  "nearby_transit": "<distances to metro/train/airport, empty string if unknown>"
 }
 
 Rules:
@@ -152,9 +156,11 @@ Rules:
 - connecting_rooms = "no" only if a source explicitly states they are unavailable
 - connecting_rooms = "unknown" if no mention found
 - total_rooms must be a number found in the text — set null if not clearly stated
+- facilities: list amenities found (e.g. Pool, Gym, Spa, Restaurant, Free WiFi, Parking, Bar); empty array if none mentioned
+- nearby_transit: summarise distances as "Metro: Xkm, Train Station: Xkm, Airport: Xkm" — omit any not mentioned; empty string if none found
 
 Text:
-${text.slice(0, 3_000)}`;
+${text.slice(0, 3_500)}`;
 
   const tryExtract = async (prompt: string): Promise<Partial<RoomData>> => {
     const completion = await client.chat.completions.create({
@@ -188,12 +194,85 @@ ${text.slice(0, 3_000)}`;
   } catch {
     // Retry once with a stricter minimal prompt
     try {
-      const retryPrompt = `Return ONLY JSON. Extract from text:\n${text.slice(0, 1_500)}\n\nJSON keys: total_rooms (int|null), connecting_rooms (yes/on request/no/unknown), connecting_detail (str), family_detail (str)`;
+      const retryPrompt = `Return ONLY JSON. Extract from text:\n${text.slice(0, 1_500)}\n\nJSON keys: total_rooms (int|null), connecting_rooms (yes/on request/no/unknown), connecting_detail (str), family_detail (str), facilities (string array), nearby_transit (str)`;
       return await tryExtract(retryPrompt);
     } catch (err) {
       logError("fetchRoomData.groq", "https://api.groq.com/openai/v1/chat/completions", 0, err);
       return {};
     }
+  }
+}
+
+// Fetches ONLY facilities and nearby_transit for hotels that already have room data.
+// Costs 2 search calls per hotel (Q3 + Q4). Used by the patch script.
+export async function fetchMissingFields(
+  hotelName: string,
+  location: string,
+  country?: string
+): Promise<{ facilities: string[]; nearby_transit: string; city: string }> {
+  const fullLocation = [location, country].filter(Boolean).join(", ");
+  const empty = { facilities: [], nearby_transit: "", city: location };
+
+  if (!process.env.SERPER_API_KEY && !process.env.SERP_API_KEY) return empty;
+
+  let facilitiesText = "";
+  let transitText = "";
+
+  try {
+    const q3 = await searchQuery(`${hotelName} ${fullLocation} hotel amenities facilities pool gym spa`);
+    for (const r of q3) {
+      if (r.snippet) facilitiesText += ` ${r.snippet}`;
+    }
+  } catch (err) {
+    logError("fetchMissingFields.q3", "search", 0, err);
+  }
+
+  try {
+    const q4 = await searchQuery(`${hotelName} ${fullLocation} distance metro train station airport`);
+    for (const r of q4) {
+      if (r.snippet) transitText += ` ${r.snippet}`;
+    }
+  } catch (err) {
+    logError("fetchMissingFields.q4", "search", 0, err);
+  }
+
+  const combinedText = [facilitiesText, transitText].filter(Boolean).join("\n\n");
+  if (!combinedText.trim()) return empty;
+
+  const client = getGroqClient();
+  const systemPrompt =
+    "You are a data extractor. Return ONLY valid JSON — no explanation, no markdown, no text outside the JSON object.";
+  const userPrompt =
+    `Extract hotel info for "${hotelName}" in "${fullLocation}" from the text below.\n\n` +
+    `Return this exact JSON:\n` +
+    `{\n  "facilities": ["<facility1>", "<facility2>"],\n  "nearby_transit": "<distances summary, empty string if unknown>"\n}\n\n` +
+    `Rules:\n` +
+    `- facilities: list amenities found (Pool, Gym, Spa, Restaurant, Free WiFi, Parking, Bar, etc.); empty array if none\n` +
+    `- nearby_transit: format as "Metro: Xkm, Train Station: Xkm, Airport: Xkm" — omit any not mentioned\n\n` +
+    `Text:\n${combinedText.slice(0, 3_000)}`;
+
+  try {
+    const completion = await client.chat.completions.create({
+      model: GROQ_MODEL,
+      max_tokens: 200,
+      temperature: 0,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content ?? "";
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return empty;
+    const parsed = JSON.parse(match[0]) as { facilities?: string[]; nearby_transit?: string };
+    return {
+      city: location,
+      facilities: Array.isArray(parsed.facilities) ? parsed.facilities : [],
+      nearby_transit: parsed.nearby_transit ?? "",
+    };
+  } catch (err) {
+    logError("fetchMissingFields.groq", "https://api.groq.com/openai/v1/chat/completions", 0, err);
+    return empty;
   }
 }
 
@@ -212,6 +291,8 @@ export async function fetchRoomData(
     connecting_rooms: "unknown",
     connecting_detail: "",
     family_detail: "",
+    facilities: [],
+    nearby_transit: "",
     sources: [],
   };
 
@@ -220,6 +301,8 @@ export async function fetchRoomData(
 
   let roomCountText = "";
   let connectingText = "";
+  let facilitiesText = "";
+  let transitText = "";
   let officialUrl: string | null = null;
 
   // ── Query 1: Total room count ─────────────────────────────────────────────
@@ -255,6 +338,35 @@ export async function fetchRoomData(
     logError("fetchRoomData.q2", "search", 0, err);
   }
 
+  // ── Query 3: Hotel facilities / amenities ─────────────────────────────────
+  try {
+    const q3Results = await searchQuery(`${hotelName} ${fullLocation} hotel amenities facilities pool gym spa`);
+    for (const r of q3Results) {
+      const domain = getDomain(r.link);
+      if (!isOTA(domain) && !officialUrl) officialUrl = r.link;
+      if (r.snippet) {
+        facilitiesText += ` ${r.snippet}`;
+        if (!sources.includes(domain)) sources.push(domain);
+      }
+    }
+  } catch (err) {
+    logError("fetchRoomData.q3", "search", 0, err);
+  }
+
+  // ── Query 4: Distance from metro / train station / airport ────────────────
+  try {
+    const q4Results = await searchQuery(`${hotelName} ${fullLocation} distance metro train station airport`);
+    for (const r of q4Results) {
+      const domain = getDomain(r.link);
+      if (r.snippet) {
+        transitText += ` ${r.snippet}`;
+        if (!sources.includes(domain)) sources.push(domain);
+      }
+    }
+  } catch (err) {
+    logError("fetchRoomData.q4", "search", 0, err);
+  }
+
   // ── Fetch official hotel website (if found, non-OTA) ─────────────────────
   let officialPageText = "";
   if (officialUrl) {
@@ -268,7 +380,7 @@ export async function fetchRoomData(
 
   // ── Extract structured data via Groq ─────────────────────────────────────
   // Official page text first (highest trust), then snippets
-  const combinedText = [officialPageText, roomCountText, connectingText]
+  const combinedText = [officialPageText, roomCountText, connectingText, facilitiesText, transitText]
     .filter(Boolean)
     .join("\n\n");
 
@@ -285,6 +397,8 @@ export async function fetchRoomData(
     connecting_rooms: extracted.connecting_rooms ?? "unknown",
     connecting_detail: extracted.connecting_detail ?? "",
     family_detail: extracted.family_detail ?? "",
+    facilities: Array.isArray(extracted.facilities) ? extracted.facilities : [],
+    nearby_transit: extracted.nearby_transit ?? "",
     sources,
     ...(confidence ? { confidence } : {}),
   };

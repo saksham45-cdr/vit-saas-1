@@ -30,64 +30,61 @@ function appendHotelList(reply, results) {
     return;
   }
 
-  const list = document.createElement("div");
-  list.className = "hotel-list";
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "hotel-table-wrap";
 
+  const table = document.createElement("table");
+  table.className = "hotel-table";
+
+  // Header
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  const columns = [
+    "Hotel Name", "City", "Rating", "Reviews",
+    "Rooms", "Family Rooms", "Connected Rooms",
+    "Facilities", "Nearby Transit", "Summary"
+  ];
+  columns.forEach(col => {
+    const th = document.createElement("th");
+    th.textContent = col;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // Body
+  const tbody = document.createElement("tbody");
   results.forEach(hotel => {
-    const card = document.createElement("div");
-    card.className = "hotel-card";
+    const tr = document.createElement("tr");
 
-    const name = document.createElement("div");
-    name.className = "hotel-name";
-    name.textContent = hotel.hotel_name;
-    card.appendChild(name);
+    const cells = [
+      hotel.hotel_name,
+      hotel.city || hotel.location || "—",
+      hotel.rating !== null ? String(hotel.rating) : "—",
+      hotel.rating_count !== null ? hotel.rating_count.toLocaleString() : "—",
+      hotel.number_of_rooms !== null ? String(hotel.number_of_rooms) : "—",
+      hotel.family_rooms ? "Yes" : hotel.family_rooms === false ? "No" : "—",
+      hotel.connected_rooms ? "Yes" : hotel.connected_rooms === false ? "No" : "—",
+      Array.isArray(hotel.facilities) && hotel.facilities.length > 0
+        ? hotel.facilities.join(", ")
+        : "—",
+      hotel.nearby_transit || "—",
+      hotel.ai_summary || "—",
+    ];
 
-    const location = document.createElement("div");
-    location.className = "hotel-location";
-    location.textContent = hotel.location;
-    card.appendChild(location);
+    cells.forEach((val, i) => {
+      const td = document.createElement("td");
+      td.textContent = val;
+      if (i === 9) td.className = "summary-cell"; // AI summary gets truncation style
+      tr.appendChild(td);
+    });
 
-    if (hotel.rating !== null) {
-      const rating = document.createElement("div");
-      rating.className = "hotel-rating";
-      const reviewText = hotel.rating_count !== null ? ` (${hotel.rating_count} reviews)` : "";
-      rating.textContent = `Rating: ${hotel.rating}${reviewText}`;
-      card.appendChild(rating);
-    }
-
-    if (hotel.number_of_rooms !== null) {
-      const rooms = document.createElement("div");
-      rooms.className = "hotel-rooms";
-      rooms.textContent = `Rooms: ${hotel.number_of_rooms}`;
-      card.appendChild(rooms);
-    }
-
-    const tags = [];
-    if (hotel.family_rooms) tags.push("Family rooms");
-    if (hotel.connected_rooms) tags.push("Connected rooms");
-    if (tags.length > 0) {
-      const tagEl = document.createElement("div");
-      tagEl.className = "hotel-tags";
-      tagEl.textContent = tags.join(" · ");
-      card.appendChild(tagEl);
-    }
-
-    if (hotel.ai_summary) {
-      const summary = document.createElement("div");
-      summary.className = "hotel-summary";
-      summary.textContent = hotel.ai_summary;
-      card.appendChild(summary);
-    }
-
-    const sourceEl = document.createElement("div");
-    sourceEl.className = "source-indicator";
-    sourceEl.textContent = hotel.source === "cache" ? "Cached" : "Freshly fetched";
-    card.appendChild(sourceEl);
-
-    list.appendChild(card);
+    tbody.appendChild(tr);
   });
 
-  wrapper.appendChild(list);
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+  wrapper.appendChild(tableWrap);
   chatContainer.appendChild(wrapper);
   chatContainer.scrollTop = chatContainer.scrollHeight;
 }

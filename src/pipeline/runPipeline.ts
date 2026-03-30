@@ -37,6 +37,7 @@ export async function runPipeline(hotel: Hotel): Promise<PipelineResult> {
 
     enrichment.hotel_name = hotel.hotel_name;
     enrichment.location = hotel.location;
+    enrichment.city = hotel.location;
 
     // Step 5: Merge room data from SerpAPI
     enrichment.number_of_rooms = roomData.total_rooms;
@@ -46,6 +47,8 @@ export async function runPipeline(hotel: Hotel): Promise<PipelineResult> {
     // Derive booleans for backward compatibility
     enrichment.family_rooms = roomData.family_detail.length > 0;
     enrichment.connected_rooms = roomData.connecting_rooms === "yes";
+    enrichment.facilities = roomData.facilities.length > 0 ? roomData.facilities : null;
+    enrichment.nearby_transit = roomData.nearby_transit || null;
     // Merge sources (deduplicated)
     enrichment.sources = [...new Set([...enrichment.sources, ...roomData.sources])];
 

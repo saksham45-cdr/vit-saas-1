@@ -9,6 +9,7 @@ export type ConnectingRoomsStatus = "yes" | "on request" | "no" | "unknown";
 export interface HotelEnrichment {
   hotel_name: string;
   location: string;
+  city: string | null;
   booking_url: string | null;
   rating: number | null;
   rating_count: number | null;
@@ -18,6 +19,8 @@ export interface HotelEnrichment {
   connected_rooms: boolean | null;
   connecting_rooms: ConnectingRoomsStatus | null;
   connecting_detail: string | null;
+  facilities: string[] | null;
+  nearby_transit: string | null;
   ai_summary: string | null;
   sources: string[];
   extraction_confidence: number;

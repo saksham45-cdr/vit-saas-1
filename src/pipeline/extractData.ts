@@ -80,6 +80,7 @@ export function extractDataFromHtml(html: string, sourceUrl: string): HotelEnric
   return {
     hotel_name: "",
     location: "",
+    city: null,
     booking_url: sourceUrl,
     rating,
     rating_count,
@@ -89,6 +90,8 @@ export function extractDataFromHtml(html: string, sourceUrl: string): HotelEnric
     connected_rooms: null,
     connecting_rooms: null,
     connecting_detail: null,
+    facilities: null,
+    nearby_transit: null,
     ai_summary: null,
     sources: [sourceUrl],
     extraction_confidence,

@@ -12,7 +12,7 @@ body {
 }
 
 .app {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
   min-height: 100vh;
   display: flex;
@@ -43,6 +43,11 @@ body {
   border-radius: 16px;
   display: inline-block;
   position: relative;
+}
+
+.message.bot:has(.hotel-table-wrap) {
+  max-width: 100%;
+  width: 100%;
 }
 
 .message.user {
@@ -139,63 +144,63 @@ body {
   50% { opacity: 0; }
 }
 
-/* Hotel list results */
+/* Hotel results */
 .reply-summary {
   margin-bottom: 0.75rem;
   font-weight: 600;
 }
 
-.hotel-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.hotel-card {
-  background: #f0f8ff;
+.hotel-table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
   border: 1px solid #bbdefb;
-  border-radius: 12px;
-  padding: 0.75rem 1rem;
 }
 
-.hotel-name {
-  font-weight: 700;
-  font-size: 1rem;
-  margin-bottom: 0.1rem;
-}
-
-.hotel-location {
-  font-size: 0.8rem;
-  opacity: 0.65;
-  margin-bottom: 0.4rem;
-}
-
-.hotel-rating {
+.hotel-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 0.85rem;
-  margin-bottom: 0.25rem;
-  color: #1565c0;
+  white-space: nowrap;
 }
 
-.hotel-rooms {
-  font-size: 0.85rem;
-  margin-bottom: 0.25rem;
+.hotel-table thead {
+  background: #1976d2;
+  color: #ffffff;
 }
 
-.hotel-tags {
-  font-size: 0.8rem;
-  color: #1976d2;
-  font-weight: 500;
-  margin-bottom: 0.4rem;
+.hotel-table thead th {
+  padding: 0.6rem 0.85rem;
+  text-align: left;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
-.hotel-summary {
-  font-size: 0.85rem;
-  line-height: 1.5;
-  margin-bottom: 0.4rem;
-  border-top: 1px solid #bbdefb;
-  padding-top: 0.4rem;
+.hotel-table tbody tr {
+  border-bottom: 1px solid #e3f2fd;
+  transition: background 0.1s;
 }
 
-.hotel-card .source-indicator {
-  margin-top: 0.35rem;
+.hotel-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.hotel-table tbody tr:nth-child(even) {
+  background: #f0f8ff;
+}
+
+.hotel-table tbody tr:hover {
+  background: #dbeeff;
+}
+
+.hotel-table tbody td {
+  padding: 0.55rem 0.85rem;
+  vertical-align: top;
+  color: #0d47a1;
+  max-width: 200px;
+}
+
+.hotel-table tbody td.summary-cell {
+  white-space: normal;
+  max-width: 260px;
+  line-height: 1.45;
 }
