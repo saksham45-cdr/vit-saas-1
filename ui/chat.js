@@ -75,7 +75,9 @@ function appendHotelList(reply, results) {
     cells.forEach((val, i) => {
       const td = document.createElement("td");
       td.textContent = val;
-      if (i === 9) td.className = "summary-cell"; // AI summary gets truncation style
+      if (i === 7) td.className = "facilities-cell";
+      if (i === 8) td.className = "transit-cell";
+      if (i === 9) td.className = "summary-cell";
       tr.appendChild(td);
     });
 

@@ -199,9 +199,19 @@ body {
   max-width: 200px;
 }
 
+.hotel-table tbody td.facilities-cell,
+.hotel-table tbody td.transit-cell {
+  white-space: normal;
+  min-width: 140px;
+  max-width: 200px;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+
 .hotel-table tbody td.summary-cell {
   white-space: normal;
   min-width: 200px;
   max-width: 300px;
   line-height: 1.45;
+  overflow-wrap: break-word;
 }
