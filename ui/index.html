@@ -2,25 +2,113 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Hotel Enrichment Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HotelIQ — Hotel Research Assistant</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="app">
-      <header class="header">
-        <h1>Hotel Enrichment Chat</h1>
-        <p>Ask about any hotel by name and location.</p>
-      </header>
-      <main class="chat-container" id="chat-container"></main>
-      <footer class="input-bar">
-        <textarea
-          id="message-input"
-          rows="2"
-          placeholder="Example: Tell me about Hotel Riviera in Lucerne"
-        ></textarea>
-        <button id="send-button">Send</button>
-      </footer>
+
+      <!-- ── Sidebar ── -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-top">
+          <div class="brand">
+            <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9,22 9,12 15,12 15,22"/>
+            </svg>
+            <span class="brand-name">HotelIQ</span>
+          </div>
+        </div>
+
+        <button class="new-chat-btn" id="new-chat-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          New search
+        </button>
+
+        <div class="sidebar-section-label">Recent</div>
+        <div class="chat-history" id="chat-history">
+          <div class="history-empty">No recent searches</div>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="sidebar-tip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            Ask by hotel name + city for best results
+          </div>
+        </div>
+      </aside>
+
+      <!-- Mobile overlay -->
+      <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+      <!-- ── Main area ── -->
+      <div class="chat-main">
+
+        <header class="chat-header">
+          <button class="menu-btn" id="menu-btn" aria-label="Open sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <div class="chat-header-center">
+            <span class="chat-title">Hotel Research Assistant</span>
+            <span class="chat-subtitle">Ratings · Rooms · Facilities · AI Summaries</span>
+          </div>
+          <div class="chat-header-status">
+            <span class="status-dot"></span>
+            <span class="status-label">Live</span>
+          </div>
+        </header>
+
+        <main class="chat-container" id="chat-container">
+
+          <!-- Empty / welcome state -->
+          <div class="empty-state" id="empty-state">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9,22 9,12 15,12 15,22"/>
+              </svg>
+            </div>
+            <h2 class="empty-title">Hotel Research Assistant</h2>
+            <p class="empty-desc">Get enriched data on any hotel — ratings, room types, facilities, nearby transit, and AI-powered summaries.</p>
+            <div class="suggestion-grid">
+              <button class="suggestion-chip">Family hotels in Barcelona</button>
+              <button class="suggestion-chip">5-star hotels in Paris</button>
+              <button class="suggestion-chip">Boutique hotels in Kyoto</button>
+              <button class="suggestion-chip">Budget hotels in London</button>
+            </div>
+          </div>
+
+        </main>
+
+        <footer class="input-bar">
+          <div class="input-wrap">
+            <textarea
+              id="message-input"
+              rows="1"
+              placeholder="Ask about a hotel by name and location…"
+            ></textarea>
+            <button id="send-button" aria-label="Send message">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22,2 15,22 11,13 2,9"/>
+              </svg>
+            </button>
+          </div>
+        </footer>
+
+      </div>
     </div>
     <script src="chat.js"></script>
   </body>
-  </html>
+</html>
