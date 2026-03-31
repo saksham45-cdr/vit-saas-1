@@ -192,6 +192,12 @@ body {
   color: var(--accent);
 }
 
+.history-item.active {
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 500;
+}
+
 /* Footer tip */
 .sidebar-footer {
   padding: 0.875rem 1rem;
