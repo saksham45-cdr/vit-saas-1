@@ -196,8 +196,16 @@ body {
   padding: 0.55rem 0.85rem;
   vertical-align: top;
   color: #0d47a1;
-  max-width: 200px;
 }
+
+/* Per-column boundaries — prevents any column from colliding with its neighbours */
+.hotel-table th:nth-child(1), .hotel-table td:nth-child(1) { min-width: 130px; max-width: 180px; white-space: normal; overflow-wrap: break-word; } /* Hotel Name */
+.hotel-table th:nth-child(2), .hotel-table td:nth-child(2) { min-width: 80px;  max-width: 130px; white-space: normal; }                             /* City */
+.hotel-table th:nth-child(3), .hotel-table td:nth-child(3) { min-width: 65px;  max-width: 80px;  }                                                  /* Rating */
+.hotel-table th:nth-child(4), .hotel-table td:nth-child(4) { min-width: 70px;  max-width: 90px;  }                                                  /* Reviews */
+.hotel-table th:nth-child(5), .hotel-table td:nth-child(5) { min-width: 60px;  max-width: 80px;  }                                                  /* Rooms */
+.hotel-table th:nth-child(6), .hotel-table td:nth-child(6) { min-width: 90px;  max-width: 110px; }                                                  /* Family Rooms */
+.hotel-table th:nth-child(7), .hotel-table td:nth-child(7) { min-width: 110px; max-width: 130px; }                                                  /* Connected Rooms */
 
 .hotel-table tbody td.facilities-cell,
 .hotel-table tbody td.transit-cell {
