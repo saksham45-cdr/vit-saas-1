@@ -201,6 +201,7 @@ body {
 
 .hotel-table tbody td.summary-cell {
   white-space: normal;
-  max-width: 260px;
+  min-width: 200px;
+  max-width: 300px;
   line-height: 1.45;
 }
