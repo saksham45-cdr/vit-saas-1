@@ -551,6 +551,13 @@ body {
   overflow-wrap: break-word;
 }
 
+.hotel-table tbody td.transit-cell .transit-line {
+  display: block;
+}
+.hotel-table tbody td.transit-cell .transit-line + .transit-line {
+  margin-top: 4px;
+}
+
 .hotel-table tbody td.summary-cell {
   white-space: normal;
   min-width: 200px;

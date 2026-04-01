@@ -273,10 +273,29 @@ function renderHotelList(reply, results, animate = true) {
     ];
     cells.forEach((val, i) => {
       const td = document.createElement("td");
-      td.textContent = val;
-      if (i === 7) td.className = "facilities-cell";
-      if (i === 8) td.className = "transit-cell";
-      if (i === 9) td.className = "summary-cell";
+      if (i === 7) {
+        td.className = "facilities-cell";
+        td.textContent = val;
+      } else if (i === 8) {
+        td.className = "transit-cell";
+        if (val && val !== "—") {
+          // Split "Metro: 2km, Train Station: 1km, Airport: 25km" into stacked lines
+          const lines = val.split(/,\s*/).map(s => s.trim()).filter(Boolean);
+          lines.forEach((line, idx) => {
+            const span = document.createElement("span");
+            span.className = "transit-line";
+            span.textContent = line;
+            td.appendChild(span);
+          });
+        } else {
+          td.textContent = "—";
+        }
+      } else if (i === 9) {
+        td.className = "summary-cell";
+        td.textContent = val;
+      } else {
+        td.textContent = val;
+      }
       tr.appendChild(td);
     });
     tbody.appendChild(tr);

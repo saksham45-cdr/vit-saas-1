@@ -299,23 +299,24 @@ export async function fetchRoomData(
   // Require at least one search provider to be configured
   if (!process.env.SERPER_API_KEY && !process.env.SERP_API_KEY) return defaultResult;
 
-  let roomCountText = "";
-  let connectingText = "";
+  let roomsText = "";
   let facilitiesText = "";
   let transitText = "";
   let officialUrl: string | null = null;
 
-  // ── Query 1: Total room count ─────────────────────────────────────────────
+  // ── Query 1: Room count + connecting/family availability (merged) ─────────
+  // Combined query surfaces the same hotel-spec pages that mention both total
+  // rooms and room-type details, so Groq can extract all four fields at once.
   try {
-    const q1Results = await searchQuery(`${hotelName} ${fullLocation} total number of rooms`);
+    const q1Results = await searchQuery(`${hotelName} ${fullLocation} total rooms connecting family rooms`);
     if (!q1Results.length) {
       logError("fetchRoomData.q1", "search", 0,
-        new Error(`No results: ${hotelName} room count`));
+        new Error(`No results: ${hotelName} rooms`));
     } else {
       for (const r of q1Results) {
         const domain = getDomain(r.link);
         if (!isOTA(domain) && !officialUrl) officialUrl = r.link;
-        if (r.snippet) { roomCountText += ` ${r.snippet}`; sources.push(domain); }
+        if (r.snippet) { roomsText += ` ${r.snippet}`; sources.push(domain); }
       }
     }
   } catch (err) {
@@ -323,22 +324,7 @@ export async function fetchRoomData(
     return { ...defaultResult, sources };
   }
 
-  // ── Query 2: Family/connecting room availability ──────────────────────────
-  try {
-    const q2Results = await searchQuery(`${hotelName} ${fullLocation} connecting rooms family rooms availability`);
-    for (const r of q2Results) {
-      const domain = getDomain(r.link);
-      if (!isOTA(domain) && !officialUrl) officialUrl = r.link;
-      if (r.snippet) {
-        connectingText += ` ${r.snippet}`;
-        if (!sources.includes(domain)) sources.push(domain);
-      }
-    }
-  } catch (err) {
-    logError("fetchRoomData.q2", "search", 0, err);
-  }
-
-  // ── Query 3: Hotel facilities / amenities ─────────────────────────────────
+  // ── Query 2: Hotel facilities / amenities ─────────────────────────────────
   try {
     const q3Results = await searchQuery(`${hotelName} ${fullLocation} hotel amenities facilities pool gym spa`);
     for (const r of q3Results) {
@@ -350,10 +336,10 @@ export async function fetchRoomData(
       }
     }
   } catch (err) {
-    logError("fetchRoomData.q3", "search", 0, err);
+    logError("fetchRoomData.q2", "search", 0, err);
   }
 
-  // ── Query 4: Distance from metro / train station / airport ────────────────
+  // ── Query 3: Distance from metro / train station / airport ────────────────
   try {
     const q4Results = await searchQuery(`${hotelName} ${fullLocation} distance metro train station airport`);
     for (const r of q4Results) {
@@ -364,7 +350,7 @@ export async function fetchRoomData(
       }
     }
   } catch (err) {
-    logError("fetchRoomData.q4", "search", 0, err);
+    logError("fetchRoomData.q3", "search", 0, err);
   }
 
   // ── Fetch official hotel website (if found, non-OTA) ─────────────────────
@@ -380,7 +366,7 @@ export async function fetchRoomData(
 
   // ── Extract structured data via Groq ─────────────────────────────────────
   // Official page text first (highest trust), then snippets
-  const combinedText = [officialPageText, roomCountText, connectingText, facilitiesText, transitText]
+  const combinedText = [officialPageText, roomsText, facilitiesText, transitText]
     .filter(Boolean)
     .join("\n\n");
 
