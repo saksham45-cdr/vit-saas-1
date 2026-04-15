@@ -15,6 +15,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "Error: SUPABASE_URL secret is not set"
+            exit 1
+          fi
+          if [ -z "$SUPABASE_SERVICE_KEY" ]; then
+            echo "Error: SUPABASE_SERVICE_KEY secret is not set"
+            exit 1
+          fi
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "${SUPABASE_URL}/rest/v1/hotels?select=id&limit=1" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" \
