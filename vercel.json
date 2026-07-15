@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/chat.ts": { "maxDuration": 10 },
+    "api/health.ts": { "maxDuration": 5 },
+    "api/internal/monitoring.ts": { "maxDuration": 10 },
+    "api/internal/ingest.ts": { "maxDuration": 30 },
+    "api/internal/ingest-worker.ts": { "maxDuration": 300 }
+  },
+  "crons": [
+    { "path": "/api/internal/ingest-worker", "schedule": "*/5 * * * *" }
+  ]
+}
