@@ -14,14 +14,36 @@
 --    text relevance + trigram similarity + precomputed quality score.
 -- ═══════════════════════════════════════════════════════════════
 
+-- Wrapper declared IMMUTABLE so it can be used in the generated column below.
+-- PostgreSQL trusts the declaration; it does not recurse into the body to verify.
+create or replace function public.hotels_search_vector(
+  p_hotel_name       text,
+  p_city             text,
+  p_country          text,
+  p_search_keywords  text[],
+  p_nearby_landmarks text,
+  p_nearby_transit   text,
+  p_ai_summary       text
+)
+returns tsvector
+language sql
+immutable
+as $$
+  select
+    setweight(to_tsvector('simple'::regconfig, coalesce(p_hotel_name, '')), 'A') ||
+    setweight(to_tsvector('simple'::regconfig, coalesce(p_city, '') || ' ' || coalesce(p_country, '')), 'B') ||
+    setweight(to_tsvector('simple'::regconfig, coalesce(array_to_string(p_search_keywords, ' '), '')), 'B') ||
+    setweight(to_tsvector('simple'::regconfig, coalesce(p_nearby_landmarks, '') || ' ' || coalesce(p_nearby_transit, '')), 'C') ||
+    setweight(to_tsvector('english'::regconfig, coalesce(p_ai_summary, '')), 'D')
+$$;
+
 alter table public.hotels
   add column if not exists search_document tsvector
   generated always as (
-    setweight(to_tsvector('simple', coalesce(hotel_name, '')), 'A') ||
-    setweight(to_tsvector('simple', coalesce(city, '') || ' ' || coalesce(country, '')), 'B') ||
-    setweight(to_tsvector('simple', coalesce(array_to_string(search_keywords, ' '), '')), 'B') ||
-    setweight(to_tsvector('simple', coalesce(nearby_landmarks, '') || ' ' || coalesce(nearby_transit, '')), 'C') ||
-    setweight(to_tsvector('english', coalesce(ai_summary, '')), 'D')
+    public.hotels_search_vector(
+      hotel_name, city, country, search_keywords,
+      nearby_landmarks, nearby_transit, ai_summary
+    )
   ) stored;
 
 -- FTS

@@ -58,7 +58,7 @@ export async function fetchClientHotels(
       const res = await fetch(url, {
         signal,
         headers: {
-          Authorization: `Bearer ${env.CLIENT_HOTEL_DATABASE_KEY}`,
+          ...(env.CLIENT_HOTEL_DATABASE_KEY && { Authorization: `Bearer ${env.CLIENT_HOTEL_DATABASE_KEY}` }),
           Accept: "application/json",
         },
       });

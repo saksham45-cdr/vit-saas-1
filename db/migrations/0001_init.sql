@@ -38,6 +38,29 @@ create table if not exists public.hotels (
 comment on table public.hotels is
   'Enriched hotel records. Written only by the ingestion pipeline; read-only for the search pipeline.';
 
+-- Idempotent column additions — safe to re-run if the table pre-existed with a partial schema.
+alter table public.hotels
+  add column if not exists external_id          text,
+  add column if not exists country              text,
+  add column if not exists city                 text,
+  add column if not exists rating               numeric(3,1),
+  add column if not exists rating_count         integer,
+  add column if not exists number_of_rooms      integer,
+  add column if not exists nearby_transit       text,
+  add column if not exists nearby_landmarks     text,
+  add column if not exists family_rooms         boolean,
+  add column if not exists connected_rooms      boolean,
+  add column if not exists facilities           text[] not null default '{}',
+  add column if not exists ai_summary           text,
+  add column if not exists hotel_url            text,
+  add column if not exists images               text[] not null default '{}',
+  add column if not exists search_keywords      text[] not null default '{}',
+  add column if not exists search_ranking_score numeric(6,4) not null default 0,
+  add column if not exists source_metadata      jsonb not null default '{}'::jsonb,
+  add column if not exists last_updated         timestamptz not null default now(),
+  add column if not exists created_at           timestamptz not null default now(),
+  add column if not exists updated_at           timestamptz not null default now();
+
 -- keep updated_at honest on any write path
 create or replace function public.touch_updated_at()
 returns trigger language plpgsql as $$

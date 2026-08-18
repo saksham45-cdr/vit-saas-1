@@ -24,7 +24,7 @@ const EnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
   // Client hotel database API
-  CLIENT_HOTEL_DATABASE_KEY: z.string().min(1),
+  CLIENT_HOTEL_DATABASE_KEY: z.string().optional(),
   CLIENT_HOTEL_DATABASE_URL: z.string().url().default("https://client-hotels.example.com/api/hotels"),
 
   // Internal endpoint protection (monitoring / ingestion triggers)
