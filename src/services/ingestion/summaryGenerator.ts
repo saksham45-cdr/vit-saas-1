@@ -64,7 +64,7 @@ export async function generateHotelSummary(
       ],
       temperature: 0.2,
       maxTokens: 220,
-      timeoutMs: 20_000, // ingestion prioritizes accuracy over speed
+      timeoutMs: 35_000, // NVIDIA latency regularly exceeds 20s; 35s covers p99
       attempts: 3,
       logger: log,
     });

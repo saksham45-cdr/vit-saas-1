@@ -64,7 +64,12 @@ export async function googleOrganicSearch(
                 "Content-Type": "application/json",
               },
               body: JSON.stringify([
-                { keyword: query.slice(0, 200), language_code: "en", depth: 10 },
+                {
+                  keyword: query.slice(0, 200),
+                  location_code: 2840, // United States — required by DataForSEO; returns global results
+                  language_code: "en",
+                  depth: 10,
+                },
               ]),
             },
           );

@@ -28,13 +28,13 @@ interface FetchPage {
 /** Map a raw client record into our normalized seed shape, defensively. */
 function mapRecord(raw: Record<string, unknown>): ClientHotel | null {
   const name =
-    sanitizeForStorage(raw["name"] ?? raw["hotel_name"] ?? raw["title"], 200);
+    sanitizeForStorage(raw["name"] ?? raw["hotel_name"] ?? raw["hotelName"] ?? raw["title"], 200);
   if (!name) return null;
   return {
-    externalId: sanitizeForStorage(raw["id"] ?? raw["external_id"], 100),
+    externalId: sanitizeForStorage(raw["id"] ?? raw["external_id"] ?? raw["hotelCode"], 100),
     hotelName: name,
-    country: sanitizeForStorage(raw["country"], 100),
-    city: sanitizeForStorage(raw["city"] ?? raw["location"], 100),
+    country: sanitizeForStorage(raw["country"] ?? raw["hotelCountry"], 100),
+    city: sanitizeForStorage(raw["city"] ?? raw["location"] ?? raw["hotelCity"], 100),
     hotelUrl: sanitizeForStorage(raw["url"] ?? raw["website"], 500),
     raw,
   };

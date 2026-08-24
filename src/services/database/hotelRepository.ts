@@ -15,6 +15,7 @@ export interface HotelUpsert {
   hotel_name: string;
   country: string | null;
   city: string | null;
+  location: string | null;
   rating: number | null;
   rating_count: number | null;
   number_of_rooms: number | null;
@@ -55,6 +56,9 @@ export async function upsertHotel(hotel: HotelUpsert): Promise<HotelRow> {
   const now = new Date().toISOString();
   const payload = { ...hotel, last_updated: now, updated_at: now };
 
+  // First try ON CONFLICT (relies on unique constraints being present in DB).
+  // If the constraint is missing (42P10) fall back to a manual find-then-write
+  // so the pipeline works even before the fix migration is applied.
   const { data, error } = await supabase
     .from("hotels")
     .upsert(payload, {
@@ -64,8 +68,38 @@ export async function upsertHotel(hotel: HotelUpsert): Promise<HotelRow> {
     .select()
     .single();
 
-  if (error) throw Errors.db(`hotel upsert failed for "${hotel.hotel_name}"`, error);
-  return data as HotelRow;
+  if (!error) return data as HotelRow;
+
+  // 42P10 = "no unique constraint matching ON CONFLICT specification"
+  if ((error as { code?: string }).code !== "42P10") {
+    throw Errors.db(`hotel upsert failed for "${hotel.hotel_name}"`, error);
+  }
+
+  // Fallback: find by external_id, then hotel_name+city, then insert.
+  let existingId: string | null = null;
+  if (hotel.external_id) {
+    const { data: row } = await supabase
+      .from("hotels").select("id").eq("external_id", hotel.external_id).maybeSingle();
+    existingId = row?.id ?? null;
+  }
+  if (!existingId && hotel.city) {
+    const { data: row } = await supabase
+      .from("hotels").select("id")
+      .eq("hotel_name", hotel.hotel_name).eq("city", hotel.city).maybeSingle();
+    existingId = row?.id ?? null;
+  }
+
+  if (existingId) {
+    const { data: updated, error: ue } = await supabase
+      .from("hotels").update(payload).eq("id", existingId).select().single();
+    if (ue) throw Errors.db(`hotel upsert failed for "${hotel.hotel_name}"`, ue);
+    return updated as HotelRow;
+  }
+
+  const { data: inserted, error: ie } = await supabase
+    .from("hotels").insert(payload).select().single();
+  if (ie) throw Errors.db(`hotel upsert failed for "${hotel.hotel_name}"`, ie);
+  return inserted as HotelRow;
 }
 
 /** Hotels never enriched, or stale beyond `staleDays`. Used by refresh scheduling. */

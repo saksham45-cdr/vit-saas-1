@@ -66,6 +66,7 @@ async function enrichOne(seed: ClientHotel, logger: Logger): Promise<void> {
     hotel_name: normalized.hotelName,
     country: normalized.country,
     city: normalized.city,
+    location: [normalized.city, normalized.country].filter(Boolean).join(", ") || null,
     rating: normalized.rating,
     rating_count: normalized.ratingCount,
     number_of_rooms: normalized.numberOfRooms,
