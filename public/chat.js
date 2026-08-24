@@ -455,7 +455,7 @@ function renderHotelList(reply, results, animate = true) {
       cardsBtn.classList.toggle("active", view === "cards");
       tableBtn.classList.toggle("active", view === "table");
       body.innerHTML = "";
-      body.appendChild(view === "cards" ? buildCardGrid(results) : buildTable(results));
+      body.appendChild(view === "cards" ? buildCarousel(results) : buildTable(results));
     }
     cardsBtn.addEventListener("click", () => { view = "cards"; setDefaultResultsView(view); paint(); });
     tableBtn.addEventListener("click", () => { view = "table"; setDefaultResultsView(view); paint(); });
@@ -486,69 +486,224 @@ function buildNoResultsPanel() {
   return panel;
 }
 
-function buildCardGrid(results) {
-  const grid = document.createElement("div");
-  grid.className = "hotel-grid";
+function buildCarousel(results) {
+  const wrap = document.createElement("div");
+  wrap.className = "carousel-wrap";
+  wrap.setAttribute("tabindex", "0");
+  wrap.setAttribute("aria-label", "Hotel results — use arrow keys to navigate");
 
-  results.forEach(h => {
-    const card = document.createElement("div");
-    card.className = "hotel-card";
+  const row = document.createElement("div");
+  row.className = "carousel-row";
 
-    const facilities = Array.isArray(h.facilities) && h.facilities.length ? h.facilities : ["—"];
-    const transit = transitLines(h.nearby_transit);
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "carousel-nav";
+  prevBtn.setAttribute("aria-label", "Previous hotel");
+  prevBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
 
-    card.innerHTML = `
-      <div class="hotel-card-head">
-        <div>
-          <div class="hotel-name"></div>
-          <div class="hotel-city"></div>
-        </div>
-        <div class="hotel-rating">
-          <div class="hotel-rating-badge">${fmtRating(h.rating)}</div>
-          <div class="hotel-rating-reviews">${fmtReviews(h.rating_count)}</div>
-        </div>
-      </div>
-      <div class="hotel-stats">
-        <div>
-          <div class="hotel-stat-label">Rooms</div>
-          <div class="hotel-stat-value">${fmtRooms(h.number_of_rooms)}</div>
-        </div>
-        <div>
-          <div class="hotel-stat-label">Family rooms</div>
-          <div class="hotel-stat-value"><span class="status-dot-sm ${dotClass(h.family_rooms)}"></span>${fmtBool(h.family_rooms)}</div>
-        </div>
-        <div>
-          <div class="hotel-stat-label">Connected</div>
-          <div class="hotel-stat-value"><span class="status-dot-sm ${dotClass(h.connected_rooms)}"></span>${fmtBool(h.connected_rooms)}</div>
-        </div>
-      </div>
-      <div>
-        <div class="hotel-section-label">Facilities</div>
-        <div class="facility-chips">${facilities.map(f => `<span class="facility-chip"></span>`).join("")}</div>
-      </div>
-      <div class="transit-block">
-        <div class="hotel-section-label">Nearby transit</div>
-        ${transit.length ? transit.map(() => `<div class="transit-line">${TRANSIT_ICON}<span></span></div>`).join("") : '<div class="transit-line"><span>—</span></div>'}
-      </div>
-      <div class="ai-summary-block">
-        <div class="ai-summary-label">${SPARKLE_ICON}<span>AI Summary</span></div>
-        <p class="ai-summary-text"></p>
-      </div>
-    `;
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "carousel-nav";
+  nextBtn.setAttribute("aria-label", "Next hotel");
+  nextBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
 
-    // Text set via textContent (not innerHTML) to keep AI/user-influenced
-    // strings from being interpreted as markup.
-    card.querySelector(".hotel-name").textContent = h.hotel_name;
-    card.querySelector(".hotel-city").textContent = fmtCity(h);
-    card.querySelectorAll(".facility-chip").forEach((el, i) => el.textContent = facilities[i]);
-    const transitSpans = card.querySelectorAll(".transit-line span");
-    if (transit.length) transitSpans.forEach((el, i) => el.textContent = transit[i]);
-    card.querySelector(".ai-summary-text").textContent = h.ai_summary || "No summary available.";
+  const viewport = document.createElement("div");
+  viewport.className = "carousel-viewport";
 
-    grid.appendChild(card);
+  const track = document.createElement("div");
+  track.className = "carousel-track";
+  viewport.appendChild(track);
+
+  const bottomRow = document.createElement("div");
+  bottomRow.className = "carousel-bottom";
+
+  const dotsWrap = document.createElement("div");
+  dotsWrap.className = "carousel-dots";
+
+  const counter = document.createElement("span");
+  counter.className = "carousel-counter";
+
+  let current = 0;
+  const dots = [];
+
+  results.forEach((h, i) => {
+    const slide = document.createElement("div");
+    slide.className = "carousel-slide";
+    slide.appendChild(buildCarouselCard(h));
+    track.appendChild(slide);
+
+    if (results.length > 1) {
+      const dot = document.createElement("button");
+      dot.className = "carousel-dot" + (i === 0 ? " active" : "");
+      dot.setAttribute("aria-label", `Hotel ${i + 1}`);
+      dot.addEventListener("click", () => goTo(i));
+      dotsWrap.appendChild(dot);
+      dots.push(dot);
+    }
   });
 
-  return grid;
+  function goTo(index, instant) {
+    current = Math.max(0, Math.min(index, results.length - 1));
+    const px = -current * viewport.offsetWidth;
+    if (instant) {
+      track.style.transition = "none";
+      void track.offsetHeight;
+    } else {
+      track.style.transition = "";
+    }
+    track.style.transform = `translateX(${px}px)`;
+    dots.forEach((d, i) => d.classList.toggle("active", i === current));
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === results.length - 1;
+    if (results.length > 1) counter.textContent = `${current + 1} / ${results.length}`;
+  }
+
+  function onResize() {
+    if (!wrap.isConnected) { window.removeEventListener("resize", onResize); return; }
+    track.style.transition = "none";
+    track.style.transform = `translateX(${-current * viewport.offsetWidth}px)`;
+  }
+  window.addEventListener("resize", onResize);
+
+  prevBtn.addEventListener("click", () => goTo(current - 1));
+  nextBtn.addEventListener("click", () => goTo(current + 1));
+
+  wrap.addEventListener("keydown", e => {
+    if      (e.key === "ArrowLeft")  { e.preventDefault(); goTo(current - 1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); goTo(current + 1); }
+  });
+
+  // Drag / swipe via pointer events (mouse + touch)
+  let dragStartX = 0;
+  let isDragging = false;
+
+  viewport.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    dragStartX = e.clientX;
+    isDragging = true;
+    track.style.transition = "none";
+    viewport.setPointerCapture(e.pointerId);
+  });
+
+  viewport.addEventListener("pointermove", e => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartX;
+    track.style.transform = `translateX(${-current * viewport.offsetWidth + dx}px)`;
+  });
+
+  viewport.addEventListener("pointerup", e => {
+    if (!isDragging) return;
+    isDragging = false;
+    const dx = e.clientX - dragStartX;
+    const threshold = viewport.offsetWidth * 0.18;
+    if      (dx < -threshold && current < results.length - 1) goTo(current + 1);
+    else if (dx >  threshold && current > 0)                  goTo(current - 1);
+    else                                                        goTo(current);
+  });
+
+  viewport.addEventListener("pointercancel", () => {
+    if (isDragging) { isDragging = false; goTo(current); }
+  });
+
+  viewport.addEventListener("dragstart", e => e.preventDefault());
+
+  if (results.length <= 1) {
+    prevBtn.style.display = "none";
+    nextBtn.style.display = "none";
+  }
+
+  row.appendChild(prevBtn);
+  row.appendChild(viewport);
+  row.appendChild(nextBtn);
+  bottomRow.appendChild(dotsWrap);
+  if (results.length > 1) bottomRow.appendChild(counter);
+
+  wrap.appendChild(row);
+  wrap.appendChild(bottomRow);
+  goTo(0, true);
+
+  return wrap;
+}
+
+function safeUrl(url) {
+  try {
+    const u = new URL(url);
+    return (u.protocol === "https:" || u.protocol === "http:") ? url : "#";
+  } catch { return "#"; }
+}
+
+function buildCarouselCard(h) {
+  const card = document.createElement("div");
+  card.className = "hotel-carousel-card";
+
+  const facilities = Array.isArray(h.facilities) && h.facilities.length ? h.facilities : [];
+  const transit = transitLines(h.nearby_transit);
+  const showCount = Math.min(facilities.length, 10);
+  const extra = facilities.length - showCount;
+
+  const PIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0-7-4.5-9-9-9s-9 2-9 9a9 9 0 0 0 9 9 9 9 0 0 0 9-9z"/><circle cx="12" cy="10" r="3"/></svg>`;
+  const EXT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+
+  card.innerHTML = `
+    <div class="hcc-header">
+      <div class="hcc-identity">
+        <div class="hcc-name"></div>
+        <div class="hcc-location">${PIN_ICON}<span class="hcc-city-text"></span></div>
+      </div>
+      <div class="hcc-rating-wrap">
+        <div class="hcc-rating-badge">${fmtRating(h.rating)}</div>
+        <div class="hcc-rating-sub"></div>
+      </div>
+    </div>
+    <div class="hcc-stats">
+      <div>
+        <div class="hcc-stat-label">Rooms</div>
+        <div class="hcc-stat-value">${fmtRooms(h.number_of_rooms)}</div>
+      </div>
+      <div>
+        <div class="hcc-stat-label">Family rooms</div>
+        <div class="hcc-stat-value"><span class="status-dot-sm ${dotClass(h.family_rooms)}"></span>${fmtBool(h.family_rooms)}</div>
+      </div>
+      <div>
+        <div class="hcc-stat-label">Connected</div>
+        <div class="hcc-stat-value"><span class="status-dot-sm ${dotClass(h.connected_rooms)}"></span>${fmtBool(h.connected_rooms)}</div>
+      </div>
+    </div>
+    ${facilities.length ? `
+    <div>
+      <div class="hcc-section-label">Facilities</div>
+      <div class="hcc-facility-chips">
+        ${facilities.slice(0, showCount).map(() => `<span class="facility-chip hcc-fc"></span>`).join("")}
+        ${extra > 0 ? `<span class="facility-chip">+${extra} more</span>` : ""}
+      </div>
+    </div>` : ""}
+    ${transit.length ? `
+    <div>
+      <div class="hcc-section-label">Nearby transit</div>
+      <div class="hcc-transit">
+        ${transit.map(() => `<div class="transit-line">${TRANSIT_ICON}<span class="hcc-tc"></span></div>`).join("")}
+      </div>
+    </div>` : ""}
+    ${h.ai_summary ? `
+    <div class="ai-summary-block">
+      <div class="ai-summary-label">${SPARKLE_ICON}<span>AI Summary</span></div>
+      <p class="ai-summary-text hcc-summary"></p>
+    </div>` : ""}
+    <div class="hcc-actions">
+      <button class="hcc-detail-btn">View Full Details</button>
+      ${h.hotel_url ? `<a class="hcc-url-btn" target="_blank" rel="noopener noreferrer">${EXT_ICON}Visit Website</a>` : ""}
+    </div>
+  `;
+
+  card.querySelector(".hcc-name").textContent = h.hotel_name;
+  card.querySelector(".hcc-city-text").textContent = fmtCity(h);
+  card.querySelector(".hcc-rating-sub").textContent = fmtReviews(h.rating_count);
+  card.querySelectorAll(".hcc-fc").forEach((el, i) => el.textContent = facilities[i]);
+  card.querySelectorAll(".hcc-tc").forEach((el, i) => el.textContent = transit[i]);
+  if (h.ai_summary) card.querySelector(".hcc-summary").textContent = h.ai_summary;
+  if (h.hotel_url)  card.querySelector(".hcc-url-btn").href = safeUrl(h.hotel_url);
+
+  card.querySelector(".hcc-detail-btn").addEventListener("click", () => openHotelModal(h));
+
+  return card;
 }
 
 function buildTable(results) {
@@ -595,6 +750,135 @@ function buildTable(results) {
   table.appendChild(tbody);
   wrap.appendChild(table);
   return wrap;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Hotel detail modal
+// ═══════════════════════════════════════════════════════════════
+let _hotelModalEl = null;
+
+function ensureHotelModal() {
+  if (_hotelModalEl) return _hotelModalEl;
+  const overlay = document.createElement("div");
+  overlay.className = "hotel-modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  const modal = document.createElement("div");
+  modal.className = "hotel-modal";
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", e => { if (e.target === overlay) closeHotelModal(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && _hotelModalEl && _hotelModalEl.classList.contains("open")) closeHotelModal();
+  });
+  _hotelModalEl = overlay;
+  return overlay;
+}
+
+function openHotelModal(h) {
+  const overlay = ensureHotelModal();
+  const modal = overlay.querySelector(".hotel-modal");
+
+  const facilities = Array.isArray(h.facilities) && h.facilities.length ? h.facilities : [];
+  const transit = transitLines(h.nearby_transit);
+  const images = Array.isArray(h.images) && h.images.length ? h.images.slice(0, 6) : [];
+  const landmarks = h.nearby_landmarks
+    ? h.nearby_landmarks.split(/,\s*/).map(s => s.trim()).filter(Boolean) : [];
+
+  const EXT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+
+  modal.innerHTML = `
+    <div class="hotel-modal-header">
+      <div>
+        <div class="hotel-modal-title hm-title"></div>
+        <div class="hotel-modal-city hm-city"></div>
+      </div>
+      <button class="hotel-modal-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="hotel-modal-body">
+      <div class="hm-rating-row">
+        <div class="hm-rating-badge">${fmtRating(h.rating)}</div>
+        <div class="hm-rating-text hm-reviews"></div>
+      </div>
+      <div class="hm-divider"></div>
+      <div class="hm-section">
+        <div class="hm-section-label">Room details</div>
+        <div class="hm-stats-grid">
+          <div class="hm-stat">
+            <div class="hm-stat-label">Total rooms</div>
+            <div class="hm-stat-value">${fmtRooms(h.number_of_rooms)}</div>
+          </div>
+          <div class="hm-stat">
+            <div class="hm-stat-label">Family rooms</div>
+            <div class="hm-stat-value"><span class="status-dot-sm ${dotClass(h.family_rooms)}"></span>${fmtBool(h.family_rooms)}</div>
+          </div>
+          <div class="hm-stat">
+            <div class="hm-stat-label">Connected rooms</div>
+            <div class="hm-stat-value"><span class="status-dot-sm ${dotClass(h.connected_rooms)}"></span>${fmtBool(h.connected_rooms)}</div>
+          </div>
+        </div>
+      </div>
+      ${facilities.length ? `
+      <div class="hm-divider"></div>
+      <div class="hm-section">
+        <div class="hm-section-label">Facilities</div>
+        <div class="hm-facilities">${facilities.map(() => `<span class="facility-chip hm-fc"></span>`).join("")}</div>
+      </div>` : ""}
+      ${transit.length ? `
+      <div class="hm-divider"></div>
+      <div class="hm-section">
+        <div class="hm-section-label">Nearby transit</div>
+        <div class="hm-transit">${transit.map(() => `<div class="transit-line">${TRANSIT_ICON}<span class="hm-tc"></span></div>`).join("")}</div>
+      </div>` : ""}
+      ${landmarks.length ? `
+      <div class="hm-divider"></div>
+      <div class="hm-section">
+        <div class="hm-section-label">Nearby landmarks</div>
+        <p class="hm-landmarks-text"></p>
+      </div>` : ""}
+      ${h.ai_summary ? `
+      <div class="hm-divider"></div>
+      <div class="hm-section">
+        <div class="ai-summary-block">
+          <div class="ai-summary-label">${SPARKLE_ICON}<span>AI Summary</span></div>
+          <p class="ai-summary-text hm-summary-text"></p>
+        </div>
+      </div>` : ""}
+      ${images.length ? `
+      <div class="hm-divider"></div>
+      <div class="hm-section">
+        <div class="hm-section-label">Photos</div>
+        <div class="hm-images">${images.map(() => `<img class="hm-image" alt="" loading="lazy">`).join("")}</div>
+      </div>` : ""}
+      ${h.hotel_url ? `
+      <div class="hm-divider"></div>
+      <a class="hm-link" target="_blank" rel="noopener noreferrer">Visit Hotel Website ${EXT_ICON}</a>` : ""}
+    </div>
+  `;
+
+  modal.querySelector(".hm-title").textContent = h.hotel_name;
+  const cityParts = [h.city, h.country].filter(Boolean);
+  modal.querySelector(".hm-city").textContent = cityParts.length ? cityParts.join(", ") : (h.location || "");
+  modal.querySelector(".hm-reviews").textContent = fmtReviews(h.rating_count);
+  modal.querySelectorAll(".hm-fc").forEach((el, i) => el.textContent = facilities[i]);
+  modal.querySelectorAll(".hm-tc").forEach((el, i) => el.textContent = transit[i]);
+  if (landmarks.length) modal.querySelector(".hm-landmarks-text").textContent = landmarks.join(" · ");
+  if (h.ai_summary)     modal.querySelector(".hm-summary-text").textContent = h.ai_summary;
+  if (images.length)    modal.querySelectorAll(".hm-image").forEach((el, i) => { el.src = images[i]; el.alt = `${h.hotel_name} photo ${i + 1}`; });
+  if (h.hotel_url)      modal.querySelector(".hm-link").href = safeUrl(h.hotel_url);
+  modal.querySelector(".hotel-modal-close").addEventListener("click", closeHotelModal);
+
+  modal.scrollTop = 0;
+  overlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeHotelModal() {
+  if (!_hotelModalEl) return;
+  _hotelModalEl.classList.remove("open");
+  document.body.style.overflow = "";
 }
 
 // ═══════════════════════════════════════════════════════════════
