@@ -455,7 +455,7 @@ function renderHotelList(reply, results, animate = true) {
       cardsBtn.classList.toggle("active", view === "cards");
       tableBtn.classList.toggle("active", view === "table");
       body.innerHTML = "";
-      body.appendChild(view === "cards" ? buildCarousel(results) : buildTable(results));
+      body.appendChild(view === "cards" ? buildGrid(results) : buildTable(results));
     }
     cardsBtn.addEventListener("click", () => { view = "cards"; setDefaultResultsView(view); paint(); });
     tableBtn.addEventListener("click", () => { view = "table"; setDefaultResultsView(view); paint(); });
@@ -486,141 +486,66 @@ function buildNoResultsPanel() {
   return panel;
 }
 
-function buildCarousel(results) {
-  const wrap = document.createElement("div");
-  wrap.className = "carousel-wrap";
-  wrap.setAttribute("tabindex", "0");
-  wrap.setAttribute("aria-label", "Hotel results — use arrow keys to navigate");
+// ── Badge computation — data-driven, no fabrication ───────────
+function computeBadges(results) {
+  const badges = new Array(results.length).fill(null);
 
-  const row = document.createElement("div");
-  row.className = "carousel-row";
+  // Single result: only award "Highly Rated" if it qualifies
+  if (results.length < 2) {
+    if (results.length === 1 && results[0].rating !== null && results[0].rating !== undefined && results[0].rating >= 8.0) {
+      badges[0] = "Highly Rated";
+    }
+    return badges;
+  }
 
-  const prevBtn = document.createElement("button");
-  prevBtn.className = "carousel-nav";
-  prevBtn.setAttribute("aria-label", "Previous hotel");
-  prevBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
-
-  const nextBtn = document.createElement("button");
-  nextBtn.className = "carousel-nav";
-  nextBtn.setAttribute("aria-label", "Next hotel");
-  nextBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
-
-  const viewport = document.createElement("div");
-  viewport.className = "carousel-viewport";
-
-  const track = document.createElement("div");
-  track.className = "carousel-track";
-  viewport.appendChild(track);
-
-  const bottomRow = document.createElement("div");
-  bottomRow.className = "carousel-bottom";
-
-  const dotsWrap = document.createElement("div");
-  dotsWrap.className = "carousel-dots";
-
-  const counter = document.createElement("span");
-  counter.className = "carousel-counter";
-
-  let current = 0;
-  const dots = [];
-
+  // Pass 1: Highly Rated — rating >= 8.0
   results.forEach((h, i) => {
-    const slide = document.createElement("div");
-    slide.className = "carousel-slide";
-    slide.appendChild(buildCarouselCard(h));
-    track.appendChild(slide);
+    if (h.rating !== null && h.rating !== undefined && h.rating >= 8.0) badges[i] = "Highly Rated";
+  });
 
-    if (results.length > 1) {
-      const dot = document.createElement("button");
-      dot.className = "carousel-dot" + (i === 0 ? " active" : "");
-      dot.setAttribute("aria-label", `Hotel ${i + 1}`);
-      dot.addEventListener("click", () => goTo(i));
-      dotsWrap.appendChild(dot);
-      dots.push(dot);
+  // Pass 2: Top Reviewed — highest review count among unbadged
+  let topRevIdx = -1, maxRev = 0;
+  results.forEach((h, i) => {
+    if (!badges[i] && h.rating_count !== null && h.rating_count !== undefined && h.rating_count > maxRev) {
+      maxRev = h.rating_count; topRevIdx = i;
     }
   });
+  if (topRevIdx !== -1 && maxRev > 0) badges[topRevIdx] = "Top Reviewed";
 
-  function goTo(index, instant) {
-    current = Math.max(0, Math.min(index, results.length - 1));
-    const px = -current * viewport.offsetWidth;
-    if (instant) {
-      track.style.transition = "none";
-      void track.offsetHeight;
-    } else {
-      track.style.transition = "";
+  // Pass 3: Best Rated — highest rating among unbadged
+  let bestIdx = -1, bestRating = -1;
+  results.forEach((h, i) => {
+    if (!badges[i] && h.rating !== null && h.rating !== undefined && h.rating > bestRating) {
+      bestRating = h.rating; bestIdx = i;
     }
-    track.style.transform = `translateX(${px}px)`;
-    dots.forEach((d, i) => d.classList.toggle("active", i === current));
-    prevBtn.disabled = current === 0;
-    nextBtn.disabled = current === results.length - 1;
-    if (results.length > 1) counter.textContent = `${current + 1} / ${results.length}`;
-  }
-
-  function onResize() {
-    if (!wrap.isConnected) { window.removeEventListener("resize", onResize); return; }
-    track.style.transition = "none";
-    track.style.transform = `translateX(${-current * viewport.offsetWidth}px)`;
-  }
-  window.addEventListener("resize", onResize);
-
-  prevBtn.addEventListener("click", () => goTo(current - 1));
-  nextBtn.addEventListener("click", () => goTo(current + 1));
-
-  wrap.addEventListener("keydown", e => {
-    if      (e.key === "ArrowLeft")  { e.preventDefault(); goTo(current - 1); }
-    else if (e.key === "ArrowRight") { e.preventDefault(); goTo(current + 1); }
   });
+  if (bestIdx !== -1) badges[bestIdx] = "Best Rated";
 
-  // Drag / swipe via pointer events (mouse + touch)
-  let dragStartX = 0;
-  let isDragging = false;
+  return badges;
+}
 
-  viewport.addEventListener("pointerdown", e => {
-    if (e.button !== 0) return;
-    dragStartX = e.clientX;
-    isDragging = true;
-    track.style.transition = "none";
-    viewport.setPointerCapture(e.pointerId);
-  });
+// ── Gradient seed for placeholder (hashes hotel name → one of 6 palettes) ──
+function hotelGradient(name) {
+  const GRADIENTS = [
+    "linear-gradient(145deg, #1a3051 0%, #0d1e38 100%)",
+    "linear-gradient(145deg, #1a3028 0%, #0d2019 100%)",
+    "linear-gradient(145deg, #30201a 0%, #200d0d 100%)",
+    "linear-gradient(145deg, #2a1a30 0%, #1a0d20 100%)",
+    "linear-gradient(145deg, #1a2a30 0%, #0d1820 100%)",
+    "linear-gradient(145deg, #302a1a 0%, #201a0d 100%)",
+  ];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xfffffff;
+  return GRADIENTS[h % GRADIENTS.length];
+}
 
-  viewport.addEventListener("pointermove", e => {
-    if (!isDragging) return;
-    const dx = e.clientX - dragStartX;
-    track.style.transform = `translateX(${-current * viewport.offsetWidth + dx}px)`;
-  });
-
-  viewport.addEventListener("pointerup", e => {
-    if (!isDragging) return;
-    isDragging = false;
-    const dx = e.clientX - dragStartX;
-    const threshold = viewport.offsetWidth * 0.18;
-    if      (dx < -threshold && current < results.length - 1) goTo(current + 1);
-    else if (dx >  threshold && current > 0)                  goTo(current - 1);
-    else                                                        goTo(current);
-  });
-
-  viewport.addEventListener("pointercancel", () => {
-    if (isDragging) { isDragging = false; goTo(current); }
-  });
-
-  viewport.addEventListener("dragstart", e => e.preventDefault());
-
-  if (results.length <= 1) {
-    prevBtn.style.display = "none";
-    nextBtn.style.display = "none";
-  }
-
-  row.appendChild(prevBtn);
-  row.appendChild(viewport);
-  row.appendChild(nextBtn);
-  bottomRow.appendChild(dotsWrap);
-  if (results.length > 1) bottomRow.appendChild(counter);
-
-  wrap.appendChild(row);
-  wrap.appendChild(bottomRow);
-  goTo(0, true);
-
-  return wrap;
+// ── 2-column hotel grid ────────────────────────────────────────
+function buildGrid(results) {
+  const badges = computeBadges(results);
+  const grid = document.createElement("div");
+  grid.className = "hotel-grid";
+  results.forEach((h, i) => grid.appendChild(buildGridCard(h, badges[i])));
+  return grid;
 }
 
 function safeUrl(url) {
@@ -630,78 +555,137 @@ function safeUrl(url) {
   } catch { return "#"; }
 }
 
-function buildCarouselCard(h) {
-  const card = document.createElement("div");
-  card.className = "hotel-carousel-card";
+function buildGridCard(h, badge) {
+  const card = document.createElement("article");
+  card.className = "hotel-grid-card";
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-label", h.hotel_name);
 
   const facilities = Array.isArray(h.facilities) && h.facilities.length ? h.facilities : [];
-  const transit = transitLines(h.nearby_transit);
-  const showCount = Math.min(facilities.length, 10);
-  const extra = facilities.length - showCount;
+  const hasImage   = Array.isArray(h.images) && h.images.length > 0;
 
-  const PIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0-7-4.5-9-9-9s-9 2-9 9a9 9 0 0 0 9 9 9 9 0 0 0 9-9z"/><circle cx="12" cy="10" r="3"/></svg>`;
-  const EXT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+  // ── Image area ───────────────────────────────────────────────
+  const imageWrap = document.createElement("div");
+  imageWrap.className = "hgc-image-wrap";
 
-  card.innerHTML = `
-    <div class="hcc-header">
-      <div class="hcc-identity">
-        <div class="hcc-name"></div>
-        <div class="hcc-location">${PIN_ICON}<span class="hcc-city-text"></span></div>
-      </div>
-      <div class="hcc-rating-wrap">
-        <div class="hcc-rating-badge">${fmtRating(h.rating)}</div>
-        <div class="hcc-rating-sub"></div>
-      </div>
-    </div>
-    <div class="hcc-stats">
-      <div>
-        <div class="hcc-stat-label">Rooms</div>
-        <div class="hcc-stat-value">${fmtRooms(h.number_of_rooms)}</div>
-      </div>
-      <div>
-        <div class="hcc-stat-label">Family rooms</div>
-        <div class="hcc-stat-value"><span class="status-dot-sm ${dotClass(h.family_rooms)}"></span>${fmtBool(h.family_rooms)}</div>
-      </div>
-      <div>
-        <div class="hcc-stat-label">Connected</div>
-        <div class="hcc-stat-value"><span class="status-dot-sm ${dotClass(h.connected_rooms)}"></span>${fmtBool(h.connected_rooms)}</div>
-      </div>
-    </div>
-    ${facilities.length ? `
-    <div>
-      <div class="hcc-section-label">Facilities</div>
-      <div class="hcc-facility-chips">
-        ${facilities.slice(0, showCount).map(() => `<span class="facility-chip hcc-fc"></span>`).join("")}
-        ${extra > 0 ? `<span class="facility-chip">+${extra} more</span>` : ""}
-      </div>
-    </div>` : ""}
-    ${transit.length ? `
-    <div>
-      <div class="hcc-section-label">Nearby transit</div>
-      <div class="hcc-transit">
-        ${transit.map(() => `<div class="transit-line">${TRANSIT_ICON}<span class="hcc-tc"></span></div>`).join("")}
-      </div>
-    </div>` : ""}
-    ${h.ai_summary ? `
-    <div class="ai-summary-block">
-      <div class="ai-summary-label">${SPARKLE_ICON}<span>AI Summary</span></div>
-      <p class="ai-summary-text hcc-summary"></p>
-    </div>` : ""}
-    <div class="hcc-actions">
-      <button class="hcc-detail-btn">View Full Details</button>
-      ${h.hotel_url ? `<a class="hcc-url-btn" target="_blank" rel="noopener noreferrer">${EXT_ICON}Visit Website</a>` : ""}
-    </div>
-  `;
+  if (hasImage) {
+    const img = document.createElement("img");
+    img.className = "hgc-image";
+    img.src       = h.images[0];
+    img.alt       = h.hotel_name;
+    img.loading   = "lazy";
+    imageWrap.appendChild(img);
+  } else {
+    const ph = document.createElement("div");
+    ph.className  = "hgc-placeholder";
+    ph.style.background = hotelGradient(h.hotel_name);
+    const abbr = document.createElement("span");
+    abbr.className = "hgc-placeholder-text";
+    abbr.textContent = h.hotel_name.split(/\s+/).slice(0, 2).map(w => w[0] || "").join("").toUpperCase();
+    ph.appendChild(abbr);
+    imageWrap.appendChild(ph);
+  }
 
-  card.querySelector(".hcc-name").textContent = h.hotel_name;
-  card.querySelector(".hcc-city-text").textContent = fmtCity(h);
-  card.querySelector(".hcc-rating-sub").textContent = fmtReviews(h.rating_count);
-  card.querySelectorAll(".hcc-fc").forEach((el, i) => el.textContent = facilities[i]);
-  card.querySelectorAll(".hcc-tc").forEach((el, i) => el.textContent = transit[i]);
-  if (h.ai_summary) card.querySelector(".hcc-summary").textContent = h.ai_summary;
-  if (h.hotel_url)  card.querySelector(".hcc-url-btn").href = safeUrl(h.hotel_url);
+  if (badge) {
+    const badgeEl = document.createElement("span");
+    badgeEl.className = "hgc-badge hgc-badge--"
+      + (badge === "Highly Rated" ? "emerald" : badge === "Top Reviewed" ? "accent" : "amber");
+    badgeEl.textContent = badge;
+    imageWrap.appendChild(badgeEl);
+  }
 
-  card.querySelector(".hcc-detail-btn").addEventListener("click", () => openHotelModal(h));
+  card.appendChild(imageWrap);
+
+  // ── Body ─────────────────────────────────────────────────────
+  const body = document.createElement("div");
+  body.className = "hgc-body";
+
+  // Name + rating
+  const nameRow = document.createElement("div");
+  nameRow.className = "hgc-name-row";
+
+  const nameEl = document.createElement("h3");
+  nameEl.className  = "hgc-name";
+  nameEl.textContent = h.hotel_name;
+  nameRow.appendChild(nameEl);
+
+  const ratingEl = document.createElement("span");
+  ratingEl.className  = "hgc-rating";
+  ratingEl.textContent = fmtRating(h.rating);
+  nameRow.appendChild(ratingEl);
+
+  body.appendChild(nameRow);
+
+  // Location
+  const locEl = document.createElement("div");
+  locEl.className = "hgc-location";
+  locEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11" aria-hidden="true"><path d="M21 10c0-7-4.5-9-9-9s-9 2-9 9a9 9 0 0 0 9 9 9 9 0 0 0 9-9z"/><circle cx="12" cy="10" r="3"/></svg>`;
+  const locText = document.createElement("span");
+  locText.className  = "hgc-location-text";
+  const cityParts = [h.city, h.country].filter(Boolean);
+  locText.textContent = cityParts.length ? cityParts.join(", ") : (h.location || "");
+  locEl.appendChild(locText);
+  body.appendChild(locEl);
+
+  // Review count
+  if (h.rating_count !== null && h.rating_count !== undefined) {
+    const rev = document.createElement("div");
+    rev.className  = "hgc-reviews";
+    rev.textContent = fmtReviews(h.rating_count);
+    body.appendChild(rev);
+  }
+
+  // Amenity chips (up to 4 visible + overflow count)
+  if (facilities.length) {
+    const amenities = document.createElement("div");
+    amenities.className = "hgc-amenities";
+    facilities.slice(0, 4).forEach(f => {
+      const chip = document.createElement("span");
+      chip.className  = "hgc-chip";
+      chip.textContent = f;
+      amenities.appendChild(chip);
+    });
+    if (facilities.length > 4) {
+      const more = document.createElement("span");
+      more.className  = "hgc-chip hgc-chip-more";
+      more.textContent = `+${facilities.length - 4}`;
+      amenities.appendChild(more);
+    }
+    body.appendChild(amenities);
+  }
+
+  // Actions
+  const actions = document.createElement("div");
+  actions.className = "hgc-actions";
+
+  const detailBtn = document.createElement("button");
+  detailBtn.className  = "hgc-detail-btn";
+  detailBtn.textContent = "View Details";
+  detailBtn.addEventListener("click", e => { e.stopPropagation(); openHotelModal(h); });
+  actions.appendChild(detailBtn);
+
+  if (h.hotel_url) {
+    const urlBtn = document.createElement("a");
+    urlBtn.className = "hgc-url-btn";
+    urlBtn.href      = safeUrl(h.hotel_url);
+    urlBtn.target    = "_blank";
+    urlBtn.rel       = "noopener noreferrer";
+    urlBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
+    const urlText = document.createElement("span");
+    urlText.textContent = "Website";
+    urlBtn.appendChild(urlText);
+    urlBtn.addEventListener("click", e => e.stopPropagation());
+    actions.appendChild(urlBtn);
+  }
+
+  body.appendChild(actions);
+  card.appendChild(body);
+
+  // Whole-card click + keyboard → opens modal
+  card.addEventListener("click", () => openHotelModal(h));
+  card.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openHotelModal(h); }
+  });
 
   return card;
 }
