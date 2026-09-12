@@ -5,7 +5,7 @@
     "api/chat.ts": { "maxDuration": 10 },
     "api/health.ts": { "maxDuration": 5 },
     "api/internal/monitoring.ts": { "maxDuration": 10 },
-    "api/internal/ingest.ts": { "maxDuration": 30 },
-    "api/internal/ingest-worker.ts": { "maxDuration": 300 }
+    "api/internal/ingest.ts": { "maxDuration": 10 },
+    "api/internal/ingest-worker.ts": { "maxDuration": 10 }
   }
 }

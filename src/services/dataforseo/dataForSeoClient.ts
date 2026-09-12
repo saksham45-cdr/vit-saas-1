@@ -15,7 +15,7 @@
  * it can ever reach LLM #2 (prompt-injection defense).
  */
 import { getEnv } from "../../config/env.js";
-import { Errors } from "../../utils/errors.js";
+import { AppError, Errors } from "../../utils/errors.js";
 import { CircuitBreaker, retry } from "../../utils/resilience.js";
 import { rootLogger, errToLog, type Logger } from "../../utils/logger.js";
 import { getUsageMonitor } from "../monitoring/usageMonitor.js";
@@ -42,6 +42,12 @@ export async function googleOrganicSearch(
 
   await monitor.assertWithinLimits("dataforseo");
 
+  if (!env.DATAFORSEO_USERNAME || !env.DATAFORSEO_PASSWORD) {
+    throw new AppError("UPSTREAM_ERROR", "DataForSEO credentials are not configured — ingestion is unavailable", {
+      httpStatus: 503,
+      expose: true,
+    });
+  }
   const auth = Buffer.from(
     `${env.DATAFORSEO_USERNAME}:${env.DATAFORSEO_PASSWORD}`,
   ).toString("base64");

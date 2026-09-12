@@ -52,7 +52,14 @@ const breakers: Record<NvidiaKeyId, CircuitBreaker> = {
 
 function apiKeyFor(keyId: NvidiaKeyId): string {
   const env = getEnv();
-  return keyId === "nvidia_key_1" ? env.NVIDIA_API_KEY_1 : env.NVIDIA_API_KEY_2;
+  if (keyId === "nvidia_key_1") return env.NVIDIA_API_KEY_1;
+  if (!env.NVIDIA_API_KEY_2) {
+    throw new AppError("UPSTREAM_ERROR", "NVIDIA_API_KEY_2 is not configured — hotel summary generation is unavailable", {
+      httpStatus: 503,
+      expose: true,
+    });
+  }
+  return env.NVIDIA_API_KEY_2;
 }
 
 function isRetryable(err: unknown): boolean {

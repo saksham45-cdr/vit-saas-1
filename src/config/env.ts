@@ -13,11 +13,12 @@ import { z } from "zod";
 const EnvSchema = z.object({
   // NVIDIA LLM keys — two distinct keys, two distinct responsibilities.
   NVIDIA_API_KEY_1: z.string().min(1, "NVIDIA_API_KEY_1 (query intelligence) is required"),
-  NVIDIA_API_KEY_2: z.string().min(1, "NVIDIA_API_KEY_2 (summary generation) is required"),
+  // Ingestion-time only — optional so the search endpoint works without it.
+  NVIDIA_API_KEY_2: z.string().min(1).optional(),
 
-  // DataForSEO (ingestion-time only)
-  DATAFORSEO_USERNAME: z.string().min(1),
-  DATAFORSEO_PASSWORD: z.string().min(1),
+  // DataForSEO (ingestion-time only) — optional for the same reason.
+  DATAFORSEO_USERNAME: z.string().min(1).optional(),
+  DATAFORSEO_PASSWORD: z.string().min(1).optional(),
 
   // Supabase — service role key is server-side ONLY, never shipped to a client.
   SUPABASE_URL: z.string().url(),
