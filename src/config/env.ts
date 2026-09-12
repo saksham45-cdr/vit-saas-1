@@ -28,8 +28,10 @@ const EnvSchema = z.object({
   CLIENT_HOTEL_DATABASE_KEY: z.string().optional(),
   CLIENT_HOTEL_DATABASE_URL: z.string().url().default("https://client-hotels.example.com/api/hotels"),
 
-  // Internal endpoint protection (monitoring / ingestion triggers)
-  INTERNAL_API_SECRET: z.string().min(16).optional(),
+  // Internal endpoint protection (monitoring / ingestion triggers).
+  // Length is enforced in requireInternalAuth() where it's consumed,
+  // not here — a short/absent value must not break the search endpoint.
+  INTERNAL_API_SECRET: z.string().optional(),
 
   // Vercel
   VERCEL_OIDC_TOKEN: z.string().optional(),

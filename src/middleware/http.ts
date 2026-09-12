@@ -115,6 +115,12 @@ export function requireInternalAuth(req: VercelRequest): void {
       expose: true,
     });
   }
+  if (secret.length < 16) {
+    throw new AppError("UNAUTHORIZED", "Internal endpoints disabled: INTERNAL_API_SECRET must be at least 16 characters", {
+      httpStatus: 503,
+      expose: true,
+    });
+  }
   const header = req.headers.authorization;
   if (header !== `Bearer ${secret}`) throw Errors.unauthorized();
 }
