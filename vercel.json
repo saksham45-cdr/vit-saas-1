@@ -6,6 +6,8 @@
     "api/health.ts": { "maxDuration": 5 },
     "api/internal/monitoring.ts": { "maxDuration": 10 },
     "api/internal/ingest.ts": { "maxDuration": 10 },
-    "api/internal/ingest-worker.ts": { "maxDuration": 10 }
+    "api/internal/ingest-worker.ts": { "maxDuration": 10 },
+    "api/admin/auth.ts": { "maxDuration": 5 },
+    "api/admin/run.ts": { "maxDuration": 10 }
   }
 }

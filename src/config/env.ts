@@ -33,6 +33,11 @@ const EnvSchema = z.object({
   // not here — a short/absent value must not break the search endpoint.
   INTERNAL_API_SECRET: z.string().optional(),
 
+  // Admin operations panel password. Min 8 chars enforced here so a
+  // misconfigured short secret fails loudly at cold start rather than
+  // silently accepting weak passwords.
+  ADMIN_PASSWORD: z.string().min(8, "ADMIN_PASSWORD must be at least 8 characters").optional(),
+
   // Vercel
   VERCEL_OIDC_TOKEN: z.string().optional(),
 
